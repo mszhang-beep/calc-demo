@@ -33,9 +33,9 @@ if page == "🧮 计算器":
             st.error(f"出错：{e}")
 
 else:
-    st.title("📈 函数图像绘制（支持求交点）")
-    st.write("函数2留空，仅绘制单个函数图像；填写两个函数则绘图+求交点")
-    st.caption("💡乘法省略乘号写2x；log/log10括号内必须大于0！")
+    st.title("📈 函数图像绘制｜滑动x求函数值")
+    st.write("函数2留空，仅绘制单个函数；填写两个函数绘图+求交点")
+    st.caption("💡乘法省略乘号写2x；log/log10括号内必须>0")
 
     example_list = [
         "x**2",
@@ -44,20 +44,15 @@ else:
         "sqrt(x**2+4)",
         "sin(cos(x))",
         "log10(x+5)",
-        "1/(1+exp(-x))"
+        "x**3"
     ]
     select_func = st.selectbox("函数示例参考", example_list)
-    func1 = st.text_input("输入函数1 y1 =", value="x**3")
-    func2 = st.text_input("输入函数2 y2 =（留空只画y1）", value="")
+    func1 = st.text_input("输入函数 y =", value="x**3")
+    func2 = st.text_input("函数2 y2 =（留空只画y1）", value="")
 
-    # 纯手动输入，没有滑块
-    col1, col2 = st.columns(2)
-    with col1:
-        x_min = st.number_input("X轴最小值", value=0.01, step=0.1)
-    with col2:
-        x_max = st.number_input("X轴最大值", value=100.0, step=0.1)
-
-    draw_btn = st.button("🖼️绘制图像")
+    # ---------- 滑动自变量，实时算y ----------
+    st.markdown("### 🎯拖动滑块，输入自变量x，查看输出y")
+    x_slide = st.slider("自变量 x", min_value=-20.0, max_value=20.0, value=1.0, step=0.01)
 
     allowed = {
         "sin": np.sin, "cos": np.cos, "tan": np.tan,
@@ -76,6 +71,24 @@ else:
         expr = re.sub(r'(\))([a-zA-Z(])', r'\1*\2', expr)
         return expr
 
+    # 滑块实时求值
+    try:
+        expr_slide = auto_multiply(func1)
+        y_slide = eval(expr_slide, {"__builtins__": {}}, {**allowed, "x": x_slide})
+        st.info(f"当 x = {x_slide:.4f} 时，y = {y_slide:.4f}")
+    except Exception as e:
+        st.warning(f"当前x={x_slide}，该位置函数无定义：{e}")
+
+    st.divider()
+    st.markdown("### 📊绘制图像（手动设置X区间）")
+    col1, col2 = st.columns(2)
+    with col1:
+        x_min = st.number_input("X轴最小值", value=-5.0, step=0.1)
+    with col2:
+        x_max = st.number_input("X轴最大值", value=5.0, step=0.1)
+
+    draw_btn = st.button("🖼️绘制图像")
+
     if draw_btn:
         if x_min >= x_max:
             st.error("x 最小值必须小于最大值")
@@ -90,10 +103,9 @@ else:
                 y1 = y1[mask]
 
                 fig, ax = plt.subplots(figsize=(8, 5))
-                ax.plot(x, y1, color="#ff69b4", linewidth=2, label=f"y1 = {func1}")
+                ax.plot(x, y1, color="#ff69b4", linewidth=2, label=f"y = {func1}")
 
                 cross_points = []
-                # 如果函数2不为空，则绘制第二条曲线，计算交点
                 if func2.strip() != "":
                     expr2 = auto_multiply(func2)
                     y2 = eval(expr2, {"__builtins__": {}}, {**allowed, "x": x})
@@ -129,12 +141,12 @@ else:
                         st.info("当前区间内没有找到交点，可以修改X范围再试")
 
                 with st.expander("查看 x‑y 数值表（前20个点）"):
-                    df = pd.DataFrame({"x": x[:20], "y1": y1[:20]})
+                    df = pd.DataFrame({"x": x[:20], "y": y1[:20]})
                     st.dataframe(df)
 
             except Exception as e:
                 st.error(f"函数解析错误：{e}")
-                st.write("⚠️注意：log、sqrt参数不能为负数；示例 log10(x+5)、cot(x)、2x")
+                st.write("⚠️注意：log、sqrt参数不能为负数")
 
 st.divider()
 st.caption("制作人：一叶知秋.")
