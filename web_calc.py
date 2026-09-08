@@ -94,7 +94,7 @@ else:
             st.error("x 最小值必须小于最大值")
         else:
             try:
-                x = np.linspace(x_min, x_max, 2000)
+                x = np.linspace(x_min, x_max, 5000)
                 expr1 = auto_multiply(func1)
                 y1 = eval(expr1, {"__builtins__": {}}, {**allowed, "x": x})
                 mask = np.isfinite(y1)
@@ -107,10 +107,13 @@ else:
                     expr2 = auto_multiply(func2)
                     y2 = eval(expr2, {"__builtins__": {}}, {**allowed, "x": x})
                     mask2 = np.isfinite(y2)
-                    st.session_state.curve_y2 = y2[mask2]
-                    x2 = x[mask2]
-                    y1_2 = y1[mask2]
-                    diff = y1_2 - st.session_state.curve_y2
+                    x2 = x[mask & mask2]
+                    y1_2 = y1[mask & mask2]
+                    y2_2 = y2[mask & mask2]
+                    st.session_state.curve_y2 = y2_2
+
+                    diff = y1_2 - y2_2
+                    # 检测符号变化寻找交点
                     cross_idx = np.where(np.diff(np.sign(diff)))[0]
                     cp = []
                     for idx in cross_idx:
@@ -163,8 +166,10 @@ else:
         if st.session_state.curve_y2 is not None:
             ax2.plot(st.session_state.curve_x, st.session_state.curve_y2, color="#1f77b4", linewidth=2, label=f"y2 = {func2}")
 
+        # 在图上绘制交点，并且标注文字
         for (px,py) in st.session_state.cross_points:
-            ax2.plot(px, py, "ro", markersize=6)
+            ax2.plot(px, py, "ro", markersize=8, zorder=15)
+            ax2.text(px, py, f"({px:.2f},{py:.2f})", fontsize=9, color="red", va="bottom")
 
         ax2.axvline(x=x_slide, color="orange", linestyle="--", alpha=0.7)
         if y1_valid:
@@ -175,7 +180,6 @@ else:
         ax2.axhline(y=0, color="gray", linewidth=0.8, linestyle="--")
         ax2.axvline(x=0, color="gray", linewidth=0.8, linestyle="--")
 
-        # 手动设置Y轴
         try:
             if y_min_input.strip()!="":
                 ymin = float(y_min_input)
@@ -188,15 +192,20 @@ else:
 
         ax2.set_xlabel("x")
         ax2.set_ylabel("y")
-        ax2.set_title("函数图像｜橙色=y1点，蓝色=y2点")
+        ax2.set_title("函数图像｜橙色=y1点，蓝色=y2点；红点=交点")
         ax2.legend()
         ax2.grid(True, alpha=0.3)
         st.pyplot(fig2)
 
-        if len(st.session_state.cross_points) > 0:
-            st.success(f"✅找到 {len(st.session_state.cross_points)} 个交点：")
-            for px, py in st.session_state.cross_points:
-                st.write(f"交点：x = {px}, y = {py}")
+        # =========下方列举全部交点=========
+        if func2.strip() != "":
+            st.markdown("### 📍两个函数交点列表")
+            if len(st.session_state.cross_points) > 0:
+                st.success(f"✅一共找到 {len(st.session_state.cross_points)} 个交点：")
+                for idx,(px, py) in enumerate(st.session_state.cross_points,1):
+                    st.write(f"交点{idx}： x = {px:.4f} ， y = {py:.4f}")
+            else:
+                st.info("当前X-Y范围内，没有检测到交点")
 
         with st.expander("查看 x‑y 数值表（前20个点）"):
             if st.session_state.curve_y2 is not None:
