@@ -2,7 +2,7 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-import re
+import re   # ❗这一行千万不能丢
 
 st.set_page_config(page_title="计算器+函数图像", page_icon="📊")
 
@@ -51,12 +51,12 @@ else:
         "1/(1+exp(-x))"
     ]
     select_func = st.selectbox("函数示例参考", example_list)
-    func1 = st.text_input("输入函数1 y1 =", value="x**2",
+    func1 = st.text_input("输入函数1 y1 =", value="log(2x)",
                                 help="例：sin(x**2)、log10(x+5)、cot(x)、2x")
-    func2 = st.text_input("输入函数2 y2 =", value="2*x",
+    func2 = st.text_input("输入函数2 y2 =", value="2x",
                                 help="求 y1=y2 的交点")
 
-    # ===== 输入框与滑块双向同步 =====
+    # ===== session_state 双向同步滑块与输入框 =====
     if "x_min" not in st.session_state:
         st.session_state.x_min = -100.0
     if "x_max" not in st.session_state:
@@ -99,12 +99,10 @@ else:
             "csc": lambda x: 1 / np.sin(x)
         }
 
-        # ===== 自动补全省略的乘号：2x→2*x, 3sin(x)→3*sin(x), (x+1)x→(x+1)*x =====
+        # 自动补乘号处理 2x →2*x
         def auto_multiply(expr):
             expr = expr.replace("^", "**")
-            # 数字后面跟字母或左括号
             expr = re.sub(r'(\d)([a-zA-Z(])', r'\1*\2', expr)
-            # 右括号后面跟字母或左括号
             expr = re.sub(r'(\))([a-zA-Z(])', r'\1*\2', expr)
             return expr
 
@@ -115,7 +113,6 @@ else:
             y1 = eval(expr1, {"__builtins__": {}}, {**allowed, "x": x})
             y2 = eval(expr2, {"__builtins__": {}}, {**allowed, "x": x})
 
-            # 寻找交点
             diff = y1 - y2
             cross_idx = np.where(np.diff(np.sign(diff)))[0]
             cross_points = []
