@@ -1,7 +1,7 @@
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
-import re
+import pandas as pd
 
 st.set_page_config(page_title="计算器+函数图像", page_icon="📊")
 
@@ -10,7 +10,7 @@ if "bgm_start" not in st.session_state:
     st.session_state.bgm_start = False
 bgm_url = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
 
-# ============ 页面切换 ============
+# ============ 侧边栏页面切换（丢的就是这一段！） ============
 page = st.sidebar.radio("选择功能", ["🧮 计算器", "📈 函数图像"])
 
 # ==================== 页面1：计算器 ====================
@@ -41,16 +41,23 @@ if page == "🧮 计算器":
         except Exception as e:
             st.error(f"出错：{e}")
 
-# ==================== 页面2：函数图像 ====================
+# ==================== 页面2：函数图像绘图 ====================
 else:
     st.title("📈 函数图像绘制")
-    st.write("输入函数表达式，拖动滑块改变 x 范围，图像实时更新")
+    st.write("输入函数表达式，拖动滑块改变 x 范围，图像实时更新，支持复合函数")
 
-    # 输入函数
-    func_input = st.text_input("输入函数 y =", value="x**2",
-                                help="支持：+ - * / **  sin(x) cos(x) tan(x) exp(x) log(x) sqrt(x) abs(x)  pi")
+    example_list = [
+        "x**2",
+        "sin(x**2)",
+        "cos(exp(x))",
+        "sqrt(x**2+4)",
+        "sin(cos(x))",
+        "1/(1+exp(-x))"
+    ]
+    select_func = st.selectbox("选择复合函数示例", example_list)
+    func_input = st.text_input("输入函数 y =", value=select_func,
+                                help="支持复合函数，例：sin(x**2)、cos(exp(x))")
 
-    # 自变量范围滑块（实时更新）
     col1, col2 = st.columns(2)
     with col1:
         x_min = st.slider("x 最小值", -50.0, 0.0, -10.0, 0.5)
@@ -60,25 +67,20 @@ else:
     if x_min >= x_max:
         st.error("x 最小值必须小于最大值")
     else:
-        # 安全解析函数
         allowed = {
             "sin": np.sin, "cos": np.cos, "tan": np.tan,
             "exp": np.exp, "log": np.log, "sqrt": np.sqrt,
             "abs": np.abs, "pi": np.pi, "e": np.e,
             "arcsin": np.arcsin, "arccos": np.arccos, "arctan": np.arctan,
         }
-
         try:
             x = np.linspace(x_min, x_max, 1000)
-            # 替换 ^ 为 **
             expr = func_input.replace("^", "**")
             y = eval(expr, {"__builtins__": {}}, {**allowed, "x": x})
 
-            # 实时显示当前因变量范围
             y_min, y_max = float(np.nanmin(y)), float(np.nanmax(y))
             st.info(f"当前因变量 y 范围：[{y_min:.4f}, {y_max:.4f}]")
 
-            # 绘图
             fig, ax = plt.subplots(figsize=(8, 5))
             ax.plot(x, y, color="#ff69b4", linewidth=2, label=f"y = {func_input}")
             ax.axhline(y=0, color="gray", linewidth=0.8, linestyle="--")
@@ -90,16 +92,14 @@ else:
             ax.grid(True, alpha=0.3)
             st.pyplot(fig)
 
-            # 显示数值表
-            with st.expander("查看 x-y 数值表（前20个点）"):
-                import pandas as pd
+            with st.expander("查看 x‑y 数值表（前20个点）"):
                 df = pd.DataFrame({"x": x[:20], "y": y[:20]})
                 st.dataframe(df)
 
         except Exception as e:
             st.error(f"函数解析错误：{e}")
-            st.write("示例：`x**2`、`sin(x)`、`x**3 - 2*x`、`exp(-x**2)`")
+            st.write("示例：`x**2`、`sin(x)`、`sin(x**2)`复合函数也支持")
 
-# ============ 背景音乐播放 ============
+# ============ 背景音乐 ============
 if st.session_state.bgm_start:
     st.audio(bgm_url, format="audio/mpeg", loop=True, autoplay=True)
