@@ -5,12 +5,7 @@ import pandas as pd
 
 st.set_page_config(page_title="计算器+函数图像", page_icon="📊")
 
-# ============ 背景音乐 ============
-if "bgm_start" not in st.session_state:
-    st.session_state.bgm_start = False
-bgm_url = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-
-# ============ 侧边栏页面切换（丢的就是这一段！） ============
+# ============ 侧边栏页面切换 ============
 page = st.sidebar.radio("选择功能", ["🧮 计算器", "📈 函数图像"])
 
 # ==================== 页面1：计算器 ====================
@@ -21,8 +16,6 @@ if page == "🧮 计算器":
     num2 = st.number_input("请输入第二个数字")
 
     if st.button("开始计算"):
-        if not st.session_state.bgm_start:
-            st.session_state.bgm_start = True
         try:
             if op == "+":
                 res = num1 + num2
@@ -43,8 +36,8 @@ if page == "🧮 计算器":
 
 # ==================== 页面2：函数图像绘图 ====================
 else:
-    st.title("📈 函数图像绘制")
-    st.write("输入函数表达式，拖动滑块改变 x 范围，图像实时更新，支持复合函数")
+    st.title("📈 函数图像绘制（支持求交点）")
+    st.write("输入两个函数，可以手动填写范围，也可以拖动滑块调整，支持复合函数、log10、cot等，自动标记交点")
 
     example_list = [
         "x**2",
@@ -52,54 +45,86 @@ else:
         "cos(exp(x))",
         "sqrt(x**2+4)",
         "sin(cos(x))",
+        "log10(x+5)",
         "1/(1+exp(-x))"
     ]
-    select_func = st.selectbox("选择复合函数示例", example_list)
-    func_input = st.text_input("输入函数 y =", value=select_func,
-                                help="支持复合函数，例：sin(x**2)、cos(exp(x))")
+    select_func = st.selectbox("函数示例参考", example_list)
+    func1 = st.text_input("输入函数1 y1 =", value="x**2",
+                                help="例：sin(x**2)、log10(x+5)、cot(x)")
+    func2 = st.text_input("输入函数2 y2 =", value="2*x",
+                                help="求 y1=y2 的交点")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        x_min = st.slider("x 最小值", -50.0, 0.0, -10.0, 0.5)
-    with col2:
-        x_max = st.slider("x 最大值", 0.0, 50.0, 10.0, 0.5)
+    # 手动输入框 + 滑块双重控制
+    col_a, col_b = st.columns(2)
+    with col_a:
+        x_min_input = st.number_input("手动输入X最小值", value=-100.0, min_value=-10000.0, max_value=10000.0)
+        x_min = st.slider("x最小值滑块", -10000.0, 10000.0, x_min_input, 50.0)
+    with col_b:
+        x_max_input = st.number_input("手动输入X最大值", value=100.0, min_value=-10000.0, max_value=10000.0)
+        x_max = st.slider("x最大值滑块", -10000.0, 10000.0, x_max_input, 50.0)
 
     if x_min >= x_max:
         st.error("x 最小值必须小于最大值")
     else:
         allowed = {
             "sin": np.sin, "cos": np.cos, "tan": np.tan,
-            "exp": np.exp, "log": np.log, "sqrt": np.sqrt,
-            "abs": np.abs, "pi": np.pi, "e": np.e,
             "arcsin": np.arcsin, "arccos": np.arccos, "arctan": np.arctan,
+            "sinh":np.sinh,"cosh":np.cosh,"tanh":np.tanh,
+            "exp": np.exp, "log": np.log, "log10": np.log10, "sqrt": np.sqrt,
+            "abs": np.abs, "pi": np.pi, "e": np.e,
+            "cot": lambda x: 1/np.tan(x),
+            "sec": lambda x: 1/np.cos(x),
+            "csc": lambda x: 1/np.sin(x)
         }
         try:
-            x = np.linspace(x_min, x_max, 1000)
-            expr = func_input.replace("^", "**")
-            y = eval(expr, {"__builtins__": {}}, {**allowed, "x": x})
+            x = np.linspace(x_min, x_max, 2000)
+            expr1 = func1.replace("^", "**")
+            expr2 = func2.replace("^", "**")
+            y1 = eval(expr1, {"__builtins__": {}}, {**allowed, "x": x})
+            y2 = eval(expr2, {"__builtins__": {}}, {**allowed, "x": x})
 
-            y_min, y_max = float(np.nanmin(y)), float(np.nanmax(y))
-            st.info(f"当前因变量 y 范围：[{y_min:.4f}, {y_max:.4f}]")
+            # 寻找交点：y1与y2差值变号的位置
+            diff = y1 - y2
+            cross_idx = np.where(np.diff(np.sign(diff)))[0]
+            cross_points = []
+            for idx in cross_idx:
+                x0 = x[idx]
+                y0 = y1[idx]
+                cross_points.append((round(x0,4), round(y0,4)))
 
             fig, ax = plt.subplots(figsize=(8, 5))
-            ax.plot(x, y, color="#ff69b4", linewidth=2, label=f"y = {func_input}")
+            ax.plot(x, y1, color="#ff69b4", linewidth=2, label=f"y1 = {func1}")
+            ax.plot(x, y2, color="#1f77b4", linewidth=2, label=f"y2 = {func2}")
+            # 绘制交点红点
+            for (px, py) in cross_points:
+                ax.plot(px, py, "ro", markersize=6)
+
             ax.axhline(y=0, color="gray", linewidth=0.8, linestyle="--")
             ax.axvline(x=0, color="gray", linewidth=0.8, linestyle="--")
             ax.set_xlabel("x")
             ax.set_ylabel("y")
-            ax.set_title(f"y = {func_input}")
+            ax.set_title("函数图像与交点")
             ax.legend()
             ax.grid(True, alpha=0.3)
             st.pyplot(fig)
 
+            # 输出交点
+            if len(cross_points) > 0:
+                st.success(f"✅找到 {len(cross_points)} 个交点：")
+                for px,py in cross_points:
+                    st.write(f"交点：x={px}, y={py}")
+            else:
+                st.info("当前区间内没有找到交点，可以放大/调整X范围再试")
+
             with st.expander("查看 x‑y 数值表（前20个点）"):
-                df = pd.DataFrame({"x": x[:20], "y": y[:20]})
+                df = pd.DataFrame({"x": x[:20], "y1": y1[:20], "y2": y2[:20]})
                 st.dataframe(df)
 
         except Exception as e:
             st.error(f"函数解析错误：{e}")
-            st.write("示例：`x**2`、`sin(x)`、`sin(x**2)`复合函数也支持")
+            st.write("示例：`log10(x+5)`、`cot(x)`、`sin(x**2)`复合函数都支持")
 
-# ============ 背景音乐 ============
-if st.session_state.bgm_start:
-    st.audio(bgm_url, format="audio/mpeg", loop=True, autoplay=True)
+
+# ========== 页面底部：制作人署名 ==========
+st.divider()
+st.caption("制作人：一叶知秋.")
