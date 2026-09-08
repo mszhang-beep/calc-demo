@@ -35,7 +35,7 @@ if page == "🧮 计算器":
 else:
     st.title("📈 函数图像｜图像下方拖动滑块查看坐标")
     st.write("函数2留空，仅绘制单个函数；填写两个函数绘图+求交点")
-    st.caption("💡乘法省略乘号写2x；log/log10括号内必须>0")
+    st.caption("💡乘法省略乘号写2x；log/log10括号内必须>0；Y轴留空则自动适配")
 
     example_list = [
         "x**2",
@@ -51,12 +51,18 @@ else:
     func2 = st.text_input("函数2 y2 =（留空只画y1）", value="log(2*x)")
 
     st.divider()
-    st.markdown("### 📊绘制图像（手动设置X区间，点按钮更新曲线）")
+    st.markdown("### 📊绘制图像（设置坐标轴范围，点按钮更新曲线）")
     col1, col2 = st.columns(2)
     with col1:
         x_min = st.number_input("X轴最小值", value=0.01, step=0.1)
     with col2:
         x_max = st.number_input("X轴最大值", value=10.0, step=0.1)
+
+    col_y1, col_y2 = st.columns(2)
+    with col_y1:
+        y_min_input = st.text_input("Y轴最小值(留空自动)", value="-5")
+    with col_y2:
+        y_max_input = st.text_input("Y轴最大值(留空自动)", value="20")
 
     draw_btn = st.button("🖼️更新曲线图像")
 
@@ -131,7 +137,6 @@ else:
         except Exception:
             y1_valid = False
 
-        # 计算第二个函数的值（新增）
         if func2.strip() != "":
             expr_slide2 = auto_multiply(func2)
             try:
@@ -140,7 +145,6 @@ else:
             except Exception:
                 y2_valid = False
 
-        # 输出两个函数结果
         info_text = f"自变量 x = {x_slide:.4f}\n"
         if y1_valid:
             info_text += f"🔴 y1({x_slide:.2f}) = {y1_slide:.4f}\n"
@@ -152,7 +156,6 @@ else:
                 info_text += f"🔵 y2({x_slide:.2f}) = {y2_slide:.4f}"
             else:
                 info_text += f"🔵 y2 在该x处无定义"
-
         st.info(info_text)
 
         fig2, ax2 = plt.subplots(figsize=(8,5))
@@ -163,7 +166,6 @@ else:
         for (px,py) in st.session_state.cross_points:
             ax2.plot(px, py, "ro", markersize=6)
 
-        # 同一条竖线，标记两个函数的点
         ax2.axvline(x=x_slide, color="orange", linestyle="--", alpha=0.7)
         if y1_valid:
             ax2.plot(x_slide, y1_slide, "orange", marker="o", markersize=7, zorder=10)
@@ -172,6 +174,18 @@ else:
 
         ax2.axhline(y=0, color="gray", linewidth=0.8, linestyle="--")
         ax2.axvline(x=0, color="gray", linewidth=0.8, linestyle="--")
+
+        # 手动设置Y轴
+        try:
+            if y_min_input.strip()!="":
+                ymin = float(y_min_input)
+                ax2.set_ylim(ymin=ymin)
+            if y_max_input.strip()!="":
+                ymax = float(y_max_input)
+                ax2.set_ylim(ymax=ymax)
+        except ValueError:
+            st.warning("Y轴输入格式错误，使用自动Y轴")
+
         ax2.set_xlabel("x")
         ax2.set_ylabel("y")
         ax2.set_title("函数图像｜橙色=y1点，蓝色=y2点")
